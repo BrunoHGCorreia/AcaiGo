@@ -76,9 +76,9 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
     ? usuario.nome.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase()
     : "AG";
 
-  const role = (usuario?.role ?? "ATENDENTE") as Role;
-  const roleLabel = ROLE_LABELS[role] ?? role;
-  const roleColor = ROLE_COLORS[role] ?? "text-muted-foreground bg-muted";
+  const role = (usuario?.role ?? null) as Role | null;
+  const roleLabel = role ? (ROLE_LABELS[role] ?? role) : "Carregando...";
+  const roleColor = role ? (ROLE_COLORS[role] ?? "text-muted-foreground bg-muted") : "text-muted-foreground bg-muted";
 
   return (
     <div className="w-60 min-w-[240px] h-full bg-card border-r border-border flex flex-col overflow-hidden">
