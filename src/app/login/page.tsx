@@ -37,8 +37,8 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/");
-      router.refresh();
+      // Full reload to ensure AuthContext re-fetches session with correct role
+      window.location.href = "/";
     } catch {
       setError("Erro de conexão. Tente novamente.");
     } finally {
