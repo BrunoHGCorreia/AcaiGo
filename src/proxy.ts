@@ -4,7 +4,7 @@ import { verifyToken, SESSION_COOKIE } from "@/lib/auth";
 // Public routes that don't require authentication
 const PUBLIC_PATHS = ["/login"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public routes — but redirect to dashboard if already logged in
