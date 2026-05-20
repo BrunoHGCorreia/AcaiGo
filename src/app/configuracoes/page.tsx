@@ -346,8 +346,8 @@ export default function Configuracoes() {
                   {usuario?.nome ? usuario.nome.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase() : "AG"}
                 </div>
                 <div>
-                  <button className="text-sm font-medium text-primary hover:underline">Alterar foto</button>
-                  <p className="text-xs text-muted-foreground mt-0.5">Em breve: envio de avatar personalizado</p>
+                  <p className="text-sm font-semibold text-foreground">{usuario?.nome || "Açaí Gestor"}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{usuario?.cargo || "Administrador"}</p>
                 </div>
               </div>
               <form onSubmit={handleSavePerfil} className="space-y-6">

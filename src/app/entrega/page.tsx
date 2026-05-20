@@ -251,12 +251,12 @@ export default function EntregaPage() {
             <div
               key={s}
               onClick={() => setFilter(filter === s ? "Todas" : s)}
-              className={`rounded-xl border p-3 cursor-pointer transition-all ${
+              className={`rounded-xl border p-4 cursor-pointer transition-all ${
                 filter === s ? `${st.bg} ${st.border} border` : "border-border bg-card hover:border-primary/30"
               }`}
             >
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center mb-2 ${st.bg}`}>
-                <StIcon className={`w-3.5 h-3.5 ${st.color}`} />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-2.5 ${st.bg}`}>
+                <StIcon className={`w-4 h-4 ${st.color}`} />
               </div>
               <p className="text-xl font-bold text-foreground">{counts[s]}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">{st.label}</p>

@@ -4,6 +4,16 @@ import { verifyToken, SESSION_COOKIE } from "@/lib/auth";
 // Public routes that don't require authentication
 const PUBLIC_PATHS = ["/login"];
 
+// Security headers applied to every response
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -13,15 +23,15 @@ export async function middleware(request: NextRequest) {
     if (token) {
       const payload = await verifyToken(token);
       if (payload) {
-        return NextResponse.redirect(new URL("/", request.url));
+        return addSecurityHeaders(NextResponse.redirect(new URL("/", request.url)));
       }
     }
-    return NextResponse.next();
+    return addSecurityHeaders(NextResponse.next());
   }
 
   // Allow API auth routes
   if (pathname.startsWith("/api/auth")) {
-    return NextResponse.next();
+    return addSecurityHeaders(NextResponse.next());
   }
 
   // Check session cookie
@@ -30,7 +40,7 @@ export async function middleware(request: NextRequest) {
   if (!token) {
     // Redirect to login for page requests
     if (!pathname.startsWith("/api/")) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      return addSecurityHeaders(NextResponse.redirect(new URL("/login", request.url)));
     }
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
@@ -41,7 +51,7 @@ export async function middleware(request: NextRequest) {
     if (!pathname.startsWith("/api/")) {
       const response = NextResponse.redirect(new URL("/login", request.url));
       response.cookies.delete(SESSION_COOKIE);
-      return response;
+      return addSecurityHeaders(response);
     }
     return NextResponse.json({ error: "Sessão inválida" }, { status: 401 });
   }
@@ -52,7 +62,7 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-user-email", payload.email);
   if (payload.role) requestHeaders.set("x-user-role", payload.role as string);
 
-  return NextResponse.next({ request: { headers: requestHeaders } });
+  return addSecurityHeaders(NextResponse.next({ request: { headers: requestHeaders } }));
 }
 
 export const config = {
@@ -60,3 +70,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|images/).*)",
   ],
 };
+
