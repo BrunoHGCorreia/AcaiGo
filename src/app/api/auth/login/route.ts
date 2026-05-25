@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { createToken, SESSION_COOKIE, SESSION_DURATION } from "@/lib/auth";
+import { createToken, SESSION_COOKIE } from "@/lib/auth";
 
 // Constant-time delay to prevent timing attacks and slow brute-force
 async function loginDelay(success: boolean) {
@@ -10,8 +10,10 @@ async function loginDelay(success: boolean) {
   await new Promise(r => setTimeout(r, base + jitter));
 }
 
+const REMEMBER_ME_DURATION = 60 * 60 * 24 * 30; // 30 days in seconds
+
 export async function POST(req: NextRequest) {
-  const { email, senha } = await req.json();
+  const { email, senha, rememberMe } = await req.json();
 
   if (!email || !senha) {
     return NextResponse.json({ error: "Email e senha são obrigatórios" }, { status: 400 });
@@ -35,21 +37,32 @@ export async function POST(req: NextRequest) {
 
   await loginDelay(true);
 
-  const token = await createToken({ userId: usuario.id, email: usuario.email, role: usuario.role });
+  const token = await createToken({
+    userId: usuario.id,
+    email: usuario.email,
+    role: usuario.role,
+    rememberMe: !!rememberMe,
+  });
 
   const response = NextResponse.json({
     success: true,
     usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, cargo: usuario.cargo, role: usuario.role },
   });
 
-  response.cookies.set(SESSION_COOKIE, token, {
+  const cookieOptions: Parameters<typeof response.cookies.set>[2] = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: SESSION_DURATION,
     path: "/",
-  });
+  };
+
+  // "Remember me" → persistent 30-day cookie
+  // Not remembered → session cookie (expires when browser closes)
+  if (rememberMe) {
+    cookieOptions.maxAge = REMEMBER_ME_DURATION;
+  }
+
+  response.cookies.set(SESSION_COOKIE, token, cookieOptions);
 
   return response;
 }
-

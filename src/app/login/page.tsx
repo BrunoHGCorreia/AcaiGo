@@ -15,7 +15,8 @@ export default function LoginPage() {
   // If already logged in, redirect to dashboard
   useEffect(() => {
     fetch("/api/auth/session")
-      .then((r) => { if (r.ok) window.location.href = "/"; })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.usuario) window.location.href = "/"; })
       .finally(() => setChecking(false));
   }, []);
 
@@ -37,7 +38,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, rememberMe }),
       });
 
       const data = await res.json();
@@ -159,7 +160,7 @@ export default function LoginPage() {
                 onClick={() => setRememberMe(v => !v)}
                 className="text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
               >
-                Lembrar meu email
+                Manter login por <strong className="text-foreground">30 dias</strong>
               </label>
             </div>
 
@@ -183,9 +184,17 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-muted-foreground mt-6">
-          © 2026 Açaí Go CRM · Todos os direitos reservados
-        </p>
+        <div className="flex flex-col items-center gap-2 mt-6">
+          <p className="text-center text-[11px] text-muted-foreground">
+            © 2026 Açaí Go CRM · Todos os direitos reservados
+          </p>
+          <button
+            onClick={() => window.location.href = "/"}
+            className="text-[11px] text-muted-foreground hover:text-primary transition-colors"
+          >
+            ← Ver site demonstrativo
+          </button>
+        </div>
       </div>
     </div>
   );

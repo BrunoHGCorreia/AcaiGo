@@ -1,9 +1,13 @@
 "use client";
 import { useState } from "react";
 import useSWR from "swr";
-import { Search, Plus, Edit2, Trash2, Package, Clock, Truck, CheckCircle, Loader2 } from "lucide-react";
+import { Search, Plus, Eye, Edit2, Trash2, Package, Clock, Truck, CheckCircle, Loader2, X } from "lucide-react";
 import PedidoModal from "@/components/modals/PedidoModal";
 import ConfirmDelete from "@/components/modals/ConfirmDelete";
+import { useAuth } from "@/contexts/AuthContext";
+import { useVitrine } from "@/contexts/VitrineContext";
+import { demoPedidos } from "@/lib/demo-data";
+import toast from "react-hot-toast";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -32,20 +36,38 @@ function formatCurrency(v: number) {
 }
 
 export default function Pedidos() {
+  const { usuario, loading: authLoading } = useAuth();
+  const { isVitrine } = useVitrine();
+  const isDemo = (!usuario && !authLoading) || isVitrine;
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Status | "Todos">("Todos");
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [deletePedido, setDeletePedido] = useState<Pedido | null>(null);
+  const [viewPedido, setViewPedido] = useState<Pedido | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   const params = new URLSearchParams({ search, page: page.toString() });
   if (filter !== "Todos") params.set("status", filter);
 
-  const { data, isLoading, mutate } = useSWR(`/api/pedidos?${params}`, fetcher, { refreshInterval: 5000 });
-  const pedidos: Pedido[] = data?.pedidos || [];
-  const total: number = data?.total || 0;
-  const totalPages: number = data?.totalPages || 1;
+  const { data, isLoading: swrLoading, mutate } = useSWR(
+    !isDemo ? `/api/pedidos?${params}` : null,
+    fetcher, { refreshInterval: 5000 }
+  );
+
+  // In demo mode: use fake data filtered locally
+  const allPedidos: Pedido[] = isDemo
+    ? (demoPedidos as unknown as Pedido[]).filter(p =>
+        (filter === "Todos" || p.status === filter) &&
+        (search === "" || p.cliente.nome.toLowerCase().includes(search.toLowerCase()))
+      )
+    : (data?.pedidos || []);
+
+  const pedidos = allPedidos;
+  const total: number = isDemo ? allPedidos.length : (data?.total || 0);
+  const totalPages: number = isDemo ? 1 : (data?.totalPages || 1);
+  const isLoading = isDemo ? false : swrLoading;
 
   // Count by status from all pedidos (needs separate count — using current page data as approximation)
   const counts = allStatuses.reduce((acc, s) => {
@@ -54,6 +76,7 @@ export default function Pedidos() {
   }, {} as Record<Status, number>);
 
   const handleStatusChange = async (id: number, status: Status) => {
+    if (isDemo) { toast("🔒 Faça login para alterar status reais.", { icon: "🎭" }); return; }
     setUpdatingId(id);
     await fetch(`/api/pedidos/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     mutate();
@@ -61,6 +84,7 @@ export default function Pedidos() {
   };
 
   const handleDelete = async (id: number) => {
+    if (isDemo) { toast("🔒 Faça login para excluir pedidos reais.", { icon: "🎭" }); setDeletePedido(null); return; }
     await fetch(`/api/pedidos/${id}`, { method: "DELETE" });
     mutate();
   };
@@ -164,7 +188,15 @@ export default function Pedidos() {
                       <td className="py-3.5 px-3 text-right font-semibold text-foreground">{formatCurrency(p.total)}</td>
                       <td className="py-3.5 px-5 text-right">
                         <div className="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => setDeletePedido(p)} className="p-1.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500">
+                          <button onClick={() => setViewPedido(p)}
+                            className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Ver detalhes">
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setViewPedido(p)}
+                            className="p-1.5 rounded-lg hover:bg-amber-500/10 text-muted-foreground hover:text-amber-500 transition-colors" title="Editar status">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setDeletePedido(p)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors" title="Excluir">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -203,6 +235,64 @@ export default function Pedidos() {
           onClose={() => setDeletePedido(null)}
           onConfirm={() => handleDelete(deletePedido.id)}
         />
+      )}
+
+      {/* View Detail Modal */}
+      {viewPedido && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl mx-4">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <span className="text-xs font-mono font-bold text-primary">#{viewPedido.id}</span>
+                <h2 className="text-base font-semibold text-foreground mt-0.5">Detalhes do Pedido</h2>
+              </div>
+              <button onClick={() => setViewPedido(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border">
+                <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                  {viewPedido.cliente.nome.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">{viewPedido.cliente.nome}</p>
+                  <p className="text-xs text-muted-foreground">{new Date(viewPedido.createdAt).toLocaleString('pt-BR')}</p>
+                </div>
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${statusConfig[viewPedido.status].color} ${statusConfig[viewPedido.status].bg} ${statusConfig[viewPedido.status].border}`}>
+                  {viewPedido.status}
+                </span>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Itens do pedido</p>
+                <div className="space-y-1.5">
+                  {viewPedido.itens.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/20 border border-border/50">
+                      <span className="text-[13px] text-foreground">{item.produto.nome}</span>
+                      <span className="text-[11px] text-muted-foreground font-medium">x{item.quantidade}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/20">
+                <span className="text-sm text-muted-foreground">Total do pedido</span>
+                <span className="text-lg font-bold text-foreground">{formatCurrency(viewPedido.total)}</span>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Alterar status</p>
+                <select value={viewPedido.status}
+                  onChange={(e) => { handleStatusChange(viewPedido.id, e.target.value as Status); setViewPedido({...viewPedido, status: e.target.value as Status}); }}
+                  className={`w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background outline-none focus:ring-2 focus:ring-primary/30 text-foreground transition-all`}>
+                  {allStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+            <button onClick={() => setViewPedido(null)}
+              className="mt-5 w-full border border-border rounded-lg py-2.5 text-sm font-medium hover:bg-muted transition-colors">
+              Fechar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

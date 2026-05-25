@@ -41,16 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/auth/session");
       if (res.ok) {
         const data = await res.json();
-        setUsuario(data.usuario);
+        // data.usuario is either a user object or null (demo mode)
+        setUsuario(data.usuario ?? null);
       } else {
-        // Session invalid or user no longer exists — force full logout
         setUsuario(null);
-        // Clear the stale cookie by calling logout endpoint
-        await fetch("/api/auth/logout", { method: "POST" });
-        // Redirect to login only if not already there
-        if (!window.location.pathname.startsWith("/login")) {
-          window.location.href = "/login";
-        }
       }
     } catch {
       setUsuario(null);
@@ -58,6 +52,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }
   }, []);
+
+
 
   useEffect(() => { fetchSession(); }, [fetchSession]);
 

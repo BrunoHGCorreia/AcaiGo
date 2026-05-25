@@ -1,20 +1,27 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  DollarSign, ShoppingBag, Users, TrendingUp, TrendingDown,
+  DollarSign, ShoppingBag, Users, TrendingUp,
   ArrowUpRight, ArrowDownRight, Eye, Edit2, Trash2, Target,
+  X, AlertTriangle, ShieldX,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
+import { useVitrine } from "@/contexts/VitrineContext";
+import toast from "react-hot-toast";
 
-// ─── DATA ────────────────────────────────────────────────────────────────────
+// ─── DATA ─────────────────────────────────────────────────────────────────────
 
 const revenueData = [
-  { hour: "8h", value: 120 },
-  { hour: "9h", value: 340 },
+  { hour: "8h",  value: 120 },
+  { hour: "9h",  value: 340 },
   { hour: "10h", value: 580 },
   { hour: "11h", value: 920 },
   { hour: "12h", value: 1640 },
@@ -36,27 +43,27 @@ const weekData = [
 
 const statusData = [
   { name: "Concluído", value: 42, color: "#10b981" },
-  { name: "Entrega", value: 18, color: "#7c3aed" },
-  { name: "Preparo", value: 12, color: "#f59e0b" },
-  { name: "Pedido", value: 6, color: "#94a3b8" },
+  { name: "Entrega",   value: 18, color: "#7c3aed" },
+  { name: "Preparo",   value: 12, color: "#f59e0b" },
+  { name: "Pedido",    value: 6,  color: "#94a3b8" },
 ];
 
 const funnelData = [
-  { stage: "Pedido", count: 78, pct: 100, color: "#7c3aed" },
-  { stage: "Preparo", count: 72, pct: 92, color: "#9d5cf5" },
-  { stage: "Entrega", count: 64, pct: 82, color: "#c084fc" },
-  { stage: "Concluído", count: 58, pct: 74, color: "#10b981" },
+  { stage: "Pedido",    count: 78, pct: 100, color: "#7c3aed" },
+  { stage: "Preparo",   count: 72, pct: 92,  color: "#9d5cf5" },
+  { stage: "Entrega",   count: 64, pct: 82,  color: "#c084fc" },
+  { stage: "Concluído", count: 58, pct: 74,  color: "#10b981" },
 ];
 
 const orders = [
-  { id: "#1257", client: "João Silva", initials: "JS", date: "Hoje, 14:32", value: "R$ 58,90", status: "Concluído", statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
-  { id: "#1256", client: "Maria Oliveira", initials: "MO", date: "Hoje, 14:12", value: "R$ 42,50", status: "Entrega", statusColor: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
-  { id: "#1255", client: "Carlos Santos", initials: "CS", date: "Hoje, 13:45", value: "R$ 37,90", status: "Preparo", statusColor: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
-  { id: "#1254", client: "Ana Costa", initials: "AC", date: "Hoje, 13:20", value: "R$ 68,00", status: "Pedido", statusColor: "text-slate-400 bg-slate-500/10 border-slate-500/20" },
-  { id: "#1253", client: "Lucas Martins", initials: "LM", date: "Hoje, 12:58", value: "R$ 55,00", status: "Concluído", statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
+  { id: "#1257", numId: 1257, client: "João Silva",     initials: "JS", date: "Hoje, 14:32", value: "R$ 58,90", status: "Concluído", statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
+  { id: "#1256", numId: 1256, client: "Maria Oliveira", initials: "MO", date: "Hoje, 14:12", value: "R$ 42,50", status: "Entrega",   statusColor: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
+  { id: "#1255", numId: 1255, client: "Carlos Santos",  initials: "CS", date: "Hoje, 13:45", value: "R$ 37,90", status: "Preparo",   statusColor: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
+  { id: "#1254", numId: 1254, client: "Ana Costa",      initials: "AC", date: "Hoje, 13:20", value: "R$ 68,00", status: "Pedido",    statusColor: "text-slate-400 bg-slate-500/10 border-slate-500/20" },
+  { id: "#1253", numId: 1253, client: "Lucas Martins",  initials: "LM", date: "Hoje, 12:58", value: "R$ 55,00", status: "Concluído", statusColor: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" },
 ];
 
-// ─── REUSABLE COMPONENTS ─────────────────────────────────────────────────────
+// ─── REUSABLE COMPONENTS ──────────────────────────────────────────────────────
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -78,7 +85,8 @@ function CardContent({ children, className = "" }: { children: React.ReactNode; 
   return <div className={`px-3.5 pb-3.5 ${className}`}>{children}</div>;
 }
 
-// ─── CUSTOM TOOLTIP ──────────────────────────────────────────────────────────
+// ─── CUSTOM TOOLTIPS ──────────────────────────────────────────────────────────
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload?.length) {
     return (
@@ -107,19 +115,14 @@ const BarTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// ─── KPI CARD ────────────────────────────────────────────────────────────────
+// ─── KPI CARD ─────────────────────────────────────────────────────────────────
 
 function KpiCard({
   title, value, delta, deltaPositive, icon: Icon, iconColor, sparkData, sparkColor,
 }: {
-  title: string;
-  value: string;
-  delta: string;
-  deltaPositive: boolean;
-  icon: React.ElementType;
-  iconColor: string;
-  sparkData: { value: number }[];
-  sparkColor: string;
+  title: string; value: string; delta: string; deltaPositive: boolean;
+  icon: React.ElementType; iconColor: string;
+  sparkData: { value: number }[]; sparkColor: string;
 }) {
   return (
     <Card className="relative overflow-hidden">
@@ -142,15 +145,13 @@ function KpiCard({
             <AreaChart data={sparkData}>
               <defs>
                 <linearGradient id={`g-${sparkColor.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={sparkColor} stopOpacity={0.25} />
+                  <stop offset="5%"  stopColor={sparkColor} stopOpacity={0.25} />
                   <stop offset="95%" stopColor={sparkColor} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <Area
-                type="monotone"
-                dataKey="value"
-                stroke={sparkColor}
-                strokeWidth={1.5}
+                type="monotone" dataKey="value"
+                stroke={sparkColor} strokeWidth={1.5}
                 fill={`url(#g-${sparkColor.replace("#", "")})`}
                 dot={false}
               />
@@ -162,85 +163,218 @@ function KpiCard({
   );
 }
 
-// ─── MAIN PAGE ───────────────────────────────────────────────────────────────
+// ─── DELETE CONFIRMATION MODAL ────────────────────────────────────────────────
+
+function DeleteModal({
+  orderId, onClose, onConfirm,
+}: { orderId: string; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl mx-4">
+        <div className="flex items-start gap-4 mb-5">
+          <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-5 h-5 text-red-500" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Excluir pedido {orderId}?</h2>
+            <p className="text-sm text-muted-foreground mt-1">Esta ação não pode ser desfeita. O pedido será removido permanentemente.</p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 border border-border rounded-lg py-2.5 text-sm font-medium hover:bg-muted transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 bg-red-500 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" /> Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ORDER DETAIL MODAL ───────────────────────────────────────────────────────
+
+function OrderDetailModal({ order, onClose }: { order: typeof orders[0]; onClose: () => void }) {
+  const router = useRouter();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl mx-4">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <span className="text-xs font-mono font-bold text-primary">{order.id}</span>
+            <h2 className="text-base font-semibold text-foreground mt-0.5">Detalhes do Pedido</h2>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border">
+            <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+              {order.initials}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">{order.client}</p>
+              <p className="text-xs text-muted-foreground">{order.date}</p>
+            </div>
+            <span className={`ml-auto inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${order.statusColor}`}>
+              {order.status}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-lg bg-muted/20 border border-border">
+              <p className="text-xs text-muted-foreground mb-1">Valor</p>
+              <p className="text-base font-bold text-foreground">{order.value}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/20 border border-border">
+              <p className="text-xs text-muted-foreground mb-1">Status</p>
+              <p className="text-sm font-semibold text-foreground">{order.status}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 border border-border rounded-lg py-2.5 text-sm font-medium hover:bg-muted transition-colors">
+            Fechar
+          </button>
+          <button
+            onClick={() => { onClose(); router.push("/pedidos"); }}
+            className="flex-1 bg-primary text-primary-foreground rounded-lg py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            Ir para Pedidos
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── MOTOBOY DASHBOARD ────────────────────────────────────────────────────────
+
+function MotoboyDashboard() {
+  const { usuario } = useAuth();
+  const router = useRouter();
+  return (
+    <div className="space-y-6 max-w-2xl mx-auto">
+      <div>
+        <h1 className="text-xl font-bold text-foreground">Olá, {usuario?.nome?.split(" ")[0] ?? "Entregador"}! 👋</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Aqui estão suas entregas de hoje</p>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: "Pendentes", value: "2", color: "text-amber-400 bg-amber-400/10 border-amber-400/20" },
+          { label: "Em Rota",   value: "1", color: "text-violet-400 bg-violet-400/10 border-violet-400/20" },
+          { label: "Entregues", value: "3", color: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20" },
+        ].map(s => (
+          <div key={s.label} className={`rounded-xl border p-4 ${s.color}`}>
+            <p className="text-2xl font-bold">{s.value}</p>
+            <p className="text-xs mt-1 opacity-80">{s.label}</p>
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={() => router.push("/entrega")}
+        className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 text-sm font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+      >
+        Ver Minhas Entregas →
+      </button>
+    </div>
+  );
+}
+
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const { can, role, isLoading } = usePermissions();
+  const { usuario } = useAuth();
+  const { isVitrine } = useVitrine();
+  const router = useRouter();
   const totalOrders = statusData.reduce((s, d) => s + d.value, 0);
+
+  const [viewingOrder, setViewingOrder] = useState<typeof orders[0] | null>(null);
+  const [deletingOrder, setDeletingOrder] = useState<typeof orders[0] | null>(null);
+  const [localOrders, setLocalOrders] = useState(orders);
+
+  // Demo mode: not logged in OR logged in but vitrine is active
+  const isDemo = (!usuario && !isLoading) || isVitrine;
+
+  const handleDelete = (order: typeof orders[0]) => {
+    if (isDemo) {
+      toast("🔒 Faça login para excluir pedidos reais.", { icon: "🎭" });
+      setDeletingOrder(null);
+      return;
+    }
+    setLocalOrders(prev => prev.filter(o => o.id !== order.id));
+    setDeletingOrder(null);
+    toast.success(`Pedido ${order.id} removido com sucesso!`);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  // MOTOBOY sees a simplified delivery-focused dashboard (not in demo mode)
+  if (!isDemo && role === "MOTOBOY") {
+    return <MotoboyDashboard />;
+  }
+
+  // Not logged in and no permission: show demo dashboard (with fake data already in file)
+  // If logged in but no permission: show restricted
+  if (!isDemo && !can("dashboard:view")) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+        <ShieldX className="w-12 h-12 mb-3 opacity-30" />
+        <p className="text-sm font-medium">Acesso restrito</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-4">
 
-      {/* ── ROW 1: 4 KPI cards + 1 image column ─────────────────────── */}
-      <div
-        className="grid grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_270px] gap-3 lg:gap-4"
-      >
-        <KpiCard
-          title="Faturamento Hoje"
-          value="R$ 2.458,90"
-          delta="+18,6%"
-          deltaPositive={true}
-          icon={DollarSign}
-          iconColor="bg-violet-500/15 text-violet-500"
-          sparkData={revenueData}
-          sparkColor="#7c3aed"
-        />
-        <KpiCard
-          title="Pedidos Hoje"
-          value="78"
-          delta="+14,3%"
-          deltaPositive={true}
-          icon={ShoppingBag}
-          iconColor="bg-blue-500/15 text-blue-500"
-          sparkData={weekData}
-          sparkColor="#3b82f6"
-        />
-        <KpiCard
-          title="Novos Clientes"
-          value="12"
-          delta="+9,1%"
-          deltaPositive={true}
-          icon={Users}
-          iconColor="bg-emerald-500/15 text-emerald-500"
-          sparkData={[...weekData].reverse()}
-          sparkColor="#10b981"
-        />
-        <KpiCard
-          title="Ticket Médio"
-          value="R$ 31,52"
-          delta="-3,8%"
-          deltaPositive={false}
-          icon={Target}
-          iconColor="bg-amber-500/15 text-amber-500"
-          sparkData={weekData.map((d, i) => ({ value: d.value / (10 + i) }))}
-          sparkColor="#f59e0b"
-        />
+      {/* ── ROW 1: 4 KPI cards + image ──────────────────────────────── */}
+      <div className="grid grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_270px] gap-3 lg:gap-4">
+        <KpiCard title="Faturamento Hoje" value="R$ 2.458,90" delta="+18,6%" deltaPositive={true}
+          icon={DollarSign} iconColor="bg-violet-500/15 text-violet-500"
+          sparkData={revenueData} sparkColor="#7c3aed" />
+        <KpiCard title="Pedidos Hoje" value="78" delta="+14,3%" deltaPositive={true}
+          icon={ShoppingBag} iconColor="bg-blue-500/15 text-blue-500"
+          sparkData={weekData} sparkColor="#3b82f6" />
+        <KpiCard title="Novos Clientes" value="12" delta="+9,1%" deltaPositive={true}
+          icon={Users} iconColor="bg-emerald-500/15 text-emerald-500"
+          sparkData={[...weekData].reverse()} sparkColor="#10b981" />
+        <KpiCard title="Ticket Médio" value="R$ 31,52" delta="-3,8%" deltaPositive={false}
+          icon={Target} iconColor="bg-amber-500/15 text-amber-500"
+          sparkData={weekData.map((d, i) => ({ value: d.value / (10 + i) }))} sparkColor="#f59e0b" />
 
-        {/* 5th column — image only visible on xl */}
+        {/* 5th column — image */}
         <div className="hidden xl:flex items-end justify-center relative overflow-visible">
           <div className="relative w-full" style={{ marginBottom: "-24px" }}>
             <img
-              src="/images/1.png"
-              alt="Açaí Go"
+              src="/images/1.png" alt="Açaí Go"
               className="w-full h-auto object-contain drop-shadow-[0_28px_56px_rgba(124,58,237,0.65)] hover:scale-105 transition-transform duration-300 relative z-10"
             />
-            <div
-              className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full"
-              style={{
-                width: "80%",
-                height: "24px",
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full"
+              style={{ width: "80%", height: "24px",
                 background: "radial-gradient(ellipse at center, rgba(124,58,237,0.85) 0%, rgba(109,40,217,0.35) 55%, transparent 80%)",
-                filter: "blur(12px)",
-              }}
-            />
+                filter: "blur(12px)" }} />
           </div>
         </div>
       </div>
 
-      {/* ── ROW 2: Revenue Chart + Status Chart ──────────────────── */}
-
+      {/* ── ROW 2: Revenue Chart + Status Donut ─────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-4">
 
-        {/* Revenue Area Chart */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -248,14 +382,11 @@ export default function Dashboard() {
                 <CardTitle>Faturamento do Dia</CardTitle>
                 <p className="text-xl font-bold text-foreground mt-1">R$ 2.458,90</p>
                 <p className="text-xs text-emerald-500 flex items-center gap-1 mt-0.5">
-                  <ArrowUpRight className="w-3 h-3" />
-                  +21,3% comparado a ontem
+                  <ArrowUpRight className="w-3 h-3" /> +21,3% comparado a ontem
                 </p>
               </div>
               <select className="text-xs border border-border rounded-md px-2.5 py-1.5 bg-background text-muted-foreground outline-none focus:ring-2 focus:ring-ring/20 cursor-pointer">
-                <option>Hoje</option>
-                <option>Semana</option>
-                <option>Mês</option>
+                <option>Hoje</option><option>Semana</option><option>Mês</option>
               </select>
             </div>
           </CardHeader>
@@ -265,7 +396,7 @@ export default function Dashboard() {
                 <AreaChart data={revenueData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3} />
+                      <stop offset="5%"  stopColor="#7c3aed" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
                     </linearGradient>
                   </defs>
@@ -273,22 +404,14 @@ export default function Dashboard() {
                   <XAxis dataKey="hour" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} dy={8} />
                   <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#7c3aed"
-                    strokeWidth={2}
-                    fill="url(#revGrad)"
-                    activeDot={{ r: 4, fill: "#7c3aed", strokeWidth: 2, stroke: "#fff" }}
-                    dot={false}
-                  />
+                  <Area type="monotone" dataKey="value" stroke="#7c3aed" strokeWidth={2} fill="url(#revGrad)"
+                    activeDot={{ r: 4, fill: "#7c3aed", strokeWidth: 2, stroke: "#fff" }} dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Status Donut */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -297,22 +420,12 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-5">
-            {/* Donut — larger and centered */}
             <div className="relative w-[150px] h-[150px] flex-shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%" cy="50%"
-                    innerRadius={46} outerRadius={68}
-                    paddingAngle={3}
-                    dataKey="value"
-                    stroke="none"
-                    cornerRadius={4}
-                  >
-                    {statusData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
+                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={46} outerRadius={68}
+                    paddingAngle={3} dataKey="value" stroke="none" cornerRadius={4}>
+                    {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
@@ -321,8 +434,6 @@ export default function Dashboard() {
                 <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Total</span>
               </div>
             </div>
-
-            {/* Legend — full width below chart */}
             <div className="w-full space-y-3">
               {statusData.map((item, i) => (
                 <div key={i} className="flex items-center justify-between">
@@ -341,7 +452,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* ── ROW 3: Orders Table + Funnel + Weekly Bar ──────────────── */}
+      {/* ── ROW 3: Orders Table + Funnel + Weekly Bar ────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-4">
 
         {/* Orders Table */}
@@ -369,17 +480,27 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order, i) => (
-                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                  {localOrders.map((order, i) => (
+                    <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                       <td className="py-3 pl-1 pr-3">
-                        <span className="font-mono font-semibold text-primary">{order.id}</span>
+                        <button
+                          onClick={() => setViewingOrder(order)}
+                          className="font-mono font-semibold text-primary hover:underline cursor-pointer"
+                        >
+                          {order.id}
+                        </button>
                       </td>
                       <td className="py-3 pr-3">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">
                             {order.initials}
                           </div>
-                          <span className="font-medium text-foreground whitespace-nowrap">{order.client}</span>
+                          <button
+                            onClick={() => setViewingOrder(order)}
+                            className="font-medium text-foreground whitespace-nowrap hover:text-primary transition-colors"
+                          >
+                            {order.client}
+                          </button>
                         </div>
                       </td>
                       <td className="py-3 pr-3 text-muted-foreground hidden sm:table-cell whitespace-nowrap">{order.date}</td>
@@ -390,16 +511,36 @@ export default function Dashboard() {
                       </td>
                       <td className="py-3 pr-4 text-right font-semibold text-foreground whitespace-nowrap">{order.value}</td>
                       <td className="py-3 pr-1 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Ver pedido">
+                        <div className="flex items-center justify-end gap-1">
+                          {/* View */}
+                          <button
+                            onClick={() => setViewingOrder(order)}
+                            className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                            title="Ver detalhes"
+                          >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Editar">
+                          {/* Edit → go to pedidos */}
+                          <button
+                            onClick={() => {
+                              toast.success(`Editando pedido ${order.id}...`);
+                              router.push("/pedidos");
+                            }}
+                            className="p-1.5 rounded-lg hover:bg-amber-500/10 text-muted-foreground hover:text-amber-500 transition-colors"
+                            title="Editar pedido"
+                          >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button className="p-1.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors" title="Excluir">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Delete */}
+                          {can("pedidos:delete") && (
+                            <button
+                              onClick={() => setDeletingOrder(order)}
+                              className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors"
+                              title="Excluir pedido"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -413,7 +554,6 @@ export default function Dashboard() {
         {/* Right column: Funnel + Weekly */}
         <div className="flex flex-col gap-4">
 
-          {/* Funil de Pedidos */}
           <Card className="flex-1">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -432,17 +572,14 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${item.pct}%`, backgroundColor: item.color }}
-                    />
+                    <div className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${item.pct}%`, backgroundColor: item.color }} />
                   </div>
                 </div>
               ))}
             </CardContent>
           </Card>
 
-          {/* Weekly Bar Chart */}
           <Card className="flex-1">
             <CardHeader className="pb-2">
               <CardTitle>Faturamento Semanal</CardTitle>
@@ -457,10 +594,7 @@ export default function Dashboard() {
                     <Tooltip content={<BarTooltip />} />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                       {weekData.map((_, i) => (
-                        <Cell
-                          key={i}
-                          fill={i === weekData.length - 2 ? "#7c3aed" : "hsl(var(--muted))"}
-                        />
+                        <Cell key={i} fill={i === weekData.length - 2 ? "#7c3aed" : "hsl(var(--muted))"} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -471,6 +605,18 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      {/* Modals */}
+      {viewingOrder && (
+        <OrderDetailModal order={viewingOrder} onClose={() => setViewingOrder(null)} />
+      )}
+      {deletingOrder && (
+        <DeleteModal
+          orderId={deletingOrder.id}
+          onClose={() => setDeletingOrder(null)}
+          onConfirm={() => handleDelete(deletingOrder)}
+        />
+      )}
 
     </div>
   );

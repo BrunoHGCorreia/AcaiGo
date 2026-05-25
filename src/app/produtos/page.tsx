@@ -4,6 +4,9 @@ import useSWR from "swr";
 import { Plus, Search, Edit2, Trash2, Package, Loader2 } from "lucide-react";
 import ProdutoModal from "@/components/modals/ProdutoModal";
 import ConfirmDelete from "@/components/modals/ConfirmDelete";
+import { useAuth } from "@/contexts/AuthContext";
+import { demoProdutos } from "@/lib/demo-data";
+import toast from "react-hot-toast";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -19,6 +22,9 @@ type Produto = {
 };
 
 export default function Produtos() {
+  const { usuario, loading: authLoading } = useAuth();
+  const isDemo = !usuario && !authLoading;
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Todos");
   const [modalOpen, setModalOpen] = useState(false);
@@ -26,13 +32,26 @@ export default function Produtos() {
   const [deleteProduto, setDeleteProduto] = useState<Produto | null>(null);
 
   const params = new URLSearchParams({ search });
-  if (filter !== "Todos" && !["Açaí", "Combo", "Adicional"].includes(filter)) params.set("status", filter);
-  else if (["Açaí", "Combo", "Adicional"].includes(filter)) params.set("categoria", filter);
+  if (filter !== "Todos" && !["Açaí", "Combo", "Adicional", "Complemento"].includes(filter)) params.set("status", filter);
+  else if (["Açaí", "Combo", "Adicional", "Complemento"].includes(filter)) params.set("categoria", filter);
 
-  const { data, isLoading, mutate } = useSWR(`/api/produtos?${params}`, fetcher, { refreshInterval: 5000 });
-  const produtos: Produto[] = data?.produtos || [];
+  const { data, isLoading: swrLoading, mutate } = useSWR(
+    !isDemo ? `/api/produtos?${params}` : null,
+    fetcher, { refreshInterval: 5000 }
+  );
+
+  const allProdutos: Produto[] = isDemo
+    ? (demoProdutos as unknown as Produto[]).filter(p =>
+        (filter === "Todos" || p.categoria === filter) &&
+        (search === "" || p.nome.toLowerCase().includes(search.toLowerCase()))
+      )
+    : (data?.produtos || []);
+
+  const produtos = allProdutos;
+  const isLoading = isDemo ? false : swrLoading;
 
   const handleDelete = async (id: number) => {
+    if (isDemo) { toast("🔒 Faça login para excluir produtos reais.", { icon: "🎭" }); setDeleteProduto(null); return; }
     await fetch(`/api/produtos/${id}`, { method: "DELETE" });
     mutate();
   };

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
+import { DemoBanner } from "@/components/DemoBanner";
 
 const AUTH_ROUTES = ["/login"];
 
@@ -11,7 +12,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
 
   if (isAuthRoute) {
-    // Login page: clean full-screen layout, NO sidebar or topbar
     return (
       <div className="min-h-screen w-full bg-background">
         {children}
@@ -20,14 +20,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
-        </main>
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
+      <DemoBanner />
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <Topbar />
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );
 }
+

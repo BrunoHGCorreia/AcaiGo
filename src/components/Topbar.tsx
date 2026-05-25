@@ -32,9 +32,11 @@ export function Topbar() {
       {/* Saudação — só desktop */}
       <div className="hidden lg:block flex-shrink-0">
         <h2 className="text-lg font-semibold tracking-tight text-foreground">
-          Olá, {primeiroNome}! 👋
+          {usuario ? `Olá, ${primeiroNome}! 👋` : "Bem-vindo ao Açaí Go CRM"}
         </h2>
-        <p className="text-xs text-muted-foreground">Bem-vindo(a) ao Açaí Go CRM</p>
+        <p className="text-xs text-muted-foreground">
+          {usuario ? "Bem-vindo(a) ao Açaí Go CRM" : "Você está no modo demonstração"}
+        </p>
       </div>
 
       {/* Ações lado direito */}

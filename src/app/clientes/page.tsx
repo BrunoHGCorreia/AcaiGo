@@ -1,9 +1,13 @@
 "use client";
 import { useState } from "react";
 import useSWR from "swr";
-import { Search, Plus, Eye, Edit2, Trash2, ArrowUpRight, ArrowDownRight, Users, ShoppingBag, Star, Phone, Loader2 } from "lucide-react";
+import { Search, Plus, Eye, Edit2, Trash2, ArrowUpRight, ArrowDownRight, Users, ShoppingBag, Star, Phone, Loader2, X } from "lucide-react";
 import ClienteModal from "@/components/modals/ClienteModal";
 import ConfirmDelete from "@/components/modals/ConfirmDelete";
+import { useAuth } from "@/contexts/AuthContext";
+import { useVitrine } from "@/contexts/VitrineContext";
+import { demoClientes } from "@/lib/demo-data";
+import toast from "react-hot-toast";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -22,23 +26,41 @@ function getInitials(nome: string) {
 }
 
 export default function Clientes() {
+  const { usuario, loading: authLoading } = useAuth();
+  const { isVitrine } = useVitrine();
+  const isDemo = (!usuario && !authLoading) || isVitrine;
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("Todos");
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editCliente, setEditCliente] = useState<Cliente | null>(null);
   const [deleteCliente, setDeleteCliente] = useState<Cliente | null>(null);
+  const [viewCliente, setViewCliente] = useState<Cliente | null>(null);
 
   const params = new URLSearchParams({ search, page: page.toString() });
   if (filter !== "Todos") params.set("status", filter);
 
-  const { data, isLoading, mutate } = useSWR(`/api/clientes?${params}`, fetcher, { refreshInterval: 5000 });
-  const clientes: Cliente[] = data?.clientes || [];
-  const total: number = data?.total || 0;
-  const totalPages: number = data?.totalPages || 1;
+  const { data, isLoading: swrLoading, mutate } = useSWR(
+    !isDemo ? `/api/clientes?${params}` : null,
+    fetcher, { refreshInterval: 5000 }
+  );
+
+  const allClientes: Cliente[] = isDemo
+    ? (demoClientes as unknown as Cliente[]).filter(c =>
+        (filter === "Todos" || c.status === filter) &&
+        (search === "" || c.nome.toLowerCase().includes(search.toLowerCase()))
+      )
+    : (data?.clientes || []);
+
+  const clientes = allClientes;
+  const total: number = isDemo ? allClientes.length : (data?.total || 0);
+  const totalPages: number = isDemo ? 1 : (data?.totalPages || 1);
+  const isLoading = isDemo ? false : swrLoading;
   const ativos = clientes.filter(c => c.status === "Ativo").length;
 
   const handleDelete = async (id: number) => {
+    if (isDemo) { toast("🔒 Faça login para excluir clientes reais.", { icon: "🎭" }); setDeleteCliente(null); return; }
     await fetch(`/api/clientes/${id}`, { method: "DELETE" });
     mutate();
   };
@@ -145,12 +167,16 @@ export default function Clientes() {
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => setViewCliente(c)}
+                          className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="Ver detalhes">
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
                         <button onClick={() => { setEditCliente(c); setModalOpen(true); }}
-                          className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Editar">
+                          className="p-1.5 rounded-lg hover:bg-amber-500/10 text-muted-foreground hover:text-amber-500 transition-colors" title="Editar">
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => setDeleteCliente(c)}
-                          className="p-1.5 rounded hover:bg-red-500/10 text-muted-foreground hover:text-red-500" title="Excluir">
+                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-500 transition-colors" title="Excluir">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -198,6 +224,48 @@ export default function Clientes() {
           onClose={() => setDeleteCliente(null)}
           onConfirm={() => handleDelete(deleteCliente.id)}
         />
+      )}
+
+      {/* View Cliente Modal */}
+      {viewCliente && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm shadow-2xl mx-4">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-semibold text-foreground">Detalhes do Cliente</h2>
+              <button onClick={() => setViewCliente(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border">
+                <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-sm font-bold text-primary flex-shrink-0">
+                  {getInitials(viewCliente.nome)}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">{viewCliente.nome}</p>
+                  <p className="text-xs text-muted-foreground">{viewCliente.email}</p>
+                </div>
+              </div>
+              {[
+                { label: 'Telefone', value: viewCliente.telefone || '—' },
+                { label: 'Pedidos', value: viewCliente._count?.pedidos ?? 0 },
+                { label: 'Cadastro', value: new Date(viewCliente.createdAt).toLocaleDateString('pt-BR') },
+                { label: 'Status', value: viewCliente.status },
+              ].map(row => (
+                <div key={row.label} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+                  <span className="text-xs text-muted-foreground">{row.label}</span>
+                  <span className="text-sm font-medium text-foreground">{row.value}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setViewCliente(null)}
+                className="flex-1 border border-border rounded-lg py-2.5 text-sm font-medium hover:bg-muted transition-colors">Fechar</button>
+              <button onClick={() => { setViewCliente(null); setEditCliente(viewCliente); setModalOpen(true); }}
+                className="flex-1 bg-primary text-primary-foreground rounded-lg py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors">Editar</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -70,15 +70,17 @@ const motoboyGroups: NavGroup[] = [
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { usuario, logout } = useAuth();
-  const { can, isLoading } = usePermissions();
+  const { can, isLoading, role } = usePermissions();
+
+  // Demo mode = not logged in
+  const isDemo = !usuario && !isLoading;
 
   const initials = usuario?.nome
     ? usuario.nome.split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase()
     : "AG";
 
-  const role = (usuario?.role ?? null) as Role | null;
-  const roleLabel = role ? (ROLE_LABELS[role] ?? role) : "Carregando...";
-  const roleColor = role ? (ROLE_COLORS[role] ?? "text-muted-foreground bg-muted") : "text-muted-foreground bg-muted";
+  const roleLabel = isDemo ? "Demonstração" : (role ? (ROLE_LABELS[role as Role] ?? role) : "Carregando...");
+  const roleColor = isDemo ? "text-violet-400 bg-violet-500/15" : (role ? (ROLE_COLORS[role as Role] ?? "text-muted-foreground bg-muted") : "text-muted-foreground bg-muted");
 
   return (
     <div className="w-60 min-w-[240px] h-full bg-card border-r border-border flex flex-col overflow-hidden">
@@ -100,8 +102,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       {/* Nav */}
       <div className="flex-1 flex flex-col gap-3 px-3 py-3 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {(role === "MOTOBOY" ? motoboyGroups : sidebarGroups).map((group, idx) => {
-          // During loading, show all items (avoids empty mobile drawer)
-          const visibleItems = isLoading
+          // In demo mode: show ALL items (full access for showcase)
+          // When loading: show all items to avoid empty drawer
+          // When logged in: filter by permissions
+          const visibleItems = (isDemo || isLoading)
             ? group.items
             : group.items.filter(item => can(item.permission));
           if (visibleItems.length === 0) return null;
@@ -166,26 +170,47 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
       {/* User section */}
       <div className="px-3 py-2 border-t border-border">
-        <Link href="/configuracoes" onClick={onClose} className="flex items-center gap-2.5 group hover:bg-muted/50 p-2 -m-2 rounded-xl transition-all cursor-pointer">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-[11px] font-bold text-primary-foreground flex-shrink-0">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold text-foreground truncate">{usuario?.nome || "Açaí Gestor"}</div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${roleColor}`}>
-                {roleLabel}
-              </span>
-            </div>
-          </div>
+        {isDemo ? (
+          // Demo mode: show login button instead of user profile
           <button
-            onClick={(e) => { e.preventDefault(); logout(); }}
-            title="Sair"
-            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
+            onClick={() => { if (onClose) onClose(); window.location.href = "/login"; }}
+            className="w-full flex items-center gap-2.5 p-2 rounded-xl bg-primary/10 hover:bg-primary/20 transition-all cursor-pointer border border-primary/20"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[11px] font-bold text-primary flex-shrink-0">
+              AG
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold text-foreground truncate">Modo Demo</div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${roleColor}`}>
+                  {roleLabel}
+                </span>
+              </div>
+            </div>
+            <span className="text-[11px] text-primary font-semibold flex-shrink-0">Entrar →</span>
           </button>
-        </Link>
+        ) : (
+          <Link href="/configuracoes" onClick={onClose} className="flex items-center gap-2.5 group hover:bg-muted/50 p-2 -m-2 rounded-xl transition-all cursor-pointer">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-[11px] font-bold text-primary-foreground flex-shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold text-foreground truncate">{usuario?.nome || "Açaí Gestor"}</div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full leading-none ${roleColor}`}>
+                  {roleLabel}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={(e) => { e.preventDefault(); logout(); }}
+              title="Sair"
+              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </Link>
+        )}
       </div>
     </div>
   );

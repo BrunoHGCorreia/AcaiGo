@@ -6,6 +6,7 @@ import { Topbar } from "@/components/Topbar";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { VitrineProvider } from "@/contexts/VitrineContext";
 import { Toaster } from "react-hot-toast";
 import { AppShell } from "@/components/AppShell";
 
@@ -31,13 +32,15 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <SidebarProvider>
-              <AppShell>{children}</AppShell>
-              <Toaster position="bottom-right" toastOptions={{
-                className: 'bg-card text-foreground border border-border shadow-lg rounded-xl text-sm font-medium',
-                style: { background: 'var(--card)', color: 'var(--foreground)', borderColor: 'var(--border)' }
-              }} />
-            </SidebarProvider>
+            <VitrineProvider>
+              <SidebarProvider>
+                <AppShell>{children}</AppShell>
+                <Toaster position="bottom-right" toastOptions={{
+                  className: 'bg-card text-foreground border border-border shadow-lg rounded-xl text-sm font-medium',
+                  style: { background: 'var(--card)', color: 'var(--foreground)', borderColor: 'var(--border)' }
+                }} />
+              </SidebarProvider>
+            </VitrineProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -91,15 +91,20 @@ export function GlobalSearch() {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const { can, isLoading } = usePermissions();
+  const { can, isLoading, role } = usePermissions();
 
   useEffect(() => {
-    if (isLoading) return;
-    const r = searchAll(query, can);
+    if (!query.trim()) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    const r = !isLoading ? searchAll(query, can) : [];
     setResults(r);
     setSelected(0);
-    setOpen(query.trim().length > 0);
-  }, [query, can, isLoading]);
+    setOpen(r.length > 0 || query.trim().length > 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, role, isLoading]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

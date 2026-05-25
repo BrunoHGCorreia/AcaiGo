@@ -4,10 +4,14 @@ import { verifyToken, SESSION_COOKIE } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+
+  // No token = not logged in = demo mode (return null user, not an error)
+  if (!token) return NextResponse.json({ usuario: null });
 
   const payload = await verifyToken(token);
-  if (!payload) return NextResponse.json({ error: "Token inválido" }, { status: 401 });
+
+  // Invalid token = treat as not logged in
+  if (!payload) return NextResponse.json({ usuario: null });
 
   const usuario = await prisma.usuario.findUnique({
     where: { id: payload.userId },
@@ -15,7 +19,8 @@ export async function GET(req: NextRequest) {
     omit: { senhaHash: true },
   });
 
-  if (!usuario) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
+  // User deleted from DB = treat as not logged in
+  if (!usuario) return NextResponse.json({ usuario: null });
 
   return NextResponse.json({ usuario });
 }
