@@ -4,6 +4,8 @@ import useSWR from "swr";
 import { Truck, Plus, Edit2, Trash2, CheckCircle, Clock, AlertCircle, Loader2, X, Save, Package } from "lucide-react";
 import { RoleGuard } from "@/components/RoleGuard";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
+import { demoEntregadores } from "@/lib/demo-data";
 import toast from "react-hot-toast";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -136,16 +138,20 @@ function EntregadorModal({ onClose, onSave, entregador }: {
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 export default function LogisticaPage() {
-  const { data, mutate, isLoading } = useSWR("/api/entregadores", fetcher);
-  const { data: despachos, mutate: mutateDespachos, isLoading: loadingDespachos } = useSWR("/api/despachos", fetcher);
+  const { usuario, loading: authLoading } = useAuth();
+  const isDemo = !usuario && !authLoading;
+
+  const { data, mutate, isLoading } = useSWR(isDemo ? null : "/api/entregadores", fetcher);
+  const { data: despachos, mutate: mutateDespachos, isLoading: loadingDespachos } = useSWR(isDemo ? null : "/api/despachos", fetcher);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Entregador | undefined>();
   const { can } = usePermissions();
 
-  const entregadores: Entregador[] = data?.entregadores ?? [];
-  const despachosData: Despacho[] = despachos?.despachos ?? [];
+  const entregadores: Entregador[] = isDemo ? (demoEntregadores as Entregador[]) : (data?.entregadores ?? []);
+  const despachosData: Despacho[] = isDemo ? [] : (despachos?.despachos ?? []);
 
   const handleDelete = async (id: number) => {
+    if (isDemo) { toast("🎭 Modo demo — exclusões não são salvas", { icon: "ℹ️" }); return; }
     if (!confirm("Remover este entregador?")) return;
     try {
       await fetch(`/api/entregadores/${id}`, { method: "DELETE" });
@@ -157,6 +163,7 @@ export default function LogisticaPage() {
   };
 
   const handleStatusChange = async (id: number, status: string) => {
+    if (isDemo) { toast("🎭 Modo demo — alterações não são salvas", { icon: "ℹ️" }); return; }
     try {
       await fetch(`/api/entregadores/${id}`, {
         method: "PUT",

@@ -77,7 +77,8 @@ export async function proxy(request: NextRequest) {
   // All other routes (API, etc.) require authentication
   if (!token || !payload) {
     if (!pathname.startsWith("/api/")) {
-      return addSecurityHeaders(NextResponse.redirect(new URL("/login", request.url)));
+      // Redirect to demo dashboard instead of login — user can click "Fazer Login" from there
+      return addSecurityHeaders(NextResponse.redirect(new URL("/", request.url)));
     }
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }

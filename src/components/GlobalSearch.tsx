@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { Search, Users, Package, ShoppingBag, Target, X, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { clientesData, pedidosData, produtosData, leadsData } from "@/lib/data";
+import { demoClientes, demoPedidos, demoProdutos, demoLeads } from "@/lib/demo-data";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Permission } from "@/lib/permissions";
 
 type Result = {
@@ -92,6 +94,22 @@ export function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { can, isLoading, role } = usePermissions();
+  const { usuario, loading: authLoading } = useAuth();
+  const isDemo = !usuario && !authLoading;
+
+  // In demo mode, search through demo data directly
+  function searchDemo(q: string): Result[] {
+    const lq = q.toLowerCase();
+    const results: Result[] = [];
+    demoClientes.filter(c => c.nome.toLowerCase().includes(lq) || c.email.toLowerCase().includes(lq))
+      .slice(0, 3).forEach(c => results.push({ type: "cliente", label: c.nome, sub: c.email, href: "/clientes",
+        initials: c.nome.split(" ").slice(0,2).map((w:string) => w[0]).join("").toUpperCase() }));
+    demoPedidos.filter((p: any) => p.cliente?.nome?.toLowerCase().includes(lq))
+      .slice(0, 3).forEach((p: any) => results.push({ type: "pedido", label: `Pedido #${p.id}`, sub: `${p.cliente?.nome} · R$ ${p.total?.toFixed(2)} · ${p.status}`, href: "/pedidos" }));
+    demoProdutos.filter((p: any) => p.nome.toLowerCase().includes(lq))
+      .slice(0, 3).forEach((p: any) => results.push({ type: "produto", label: p.nome, sub: `${p.categoria} · R$ ${p.preco?.toFixed(2)}`, href: "/produtos" }));
+    return results;
+  }
 
   useEffect(() => {
     if (!query.trim()) {
@@ -99,12 +117,19 @@ export function GlobalSearch() {
       setOpen(false);
       return;
     }
+    if (isDemo) {
+      const r = searchDemo(query);
+      setResults(r);
+      setSelected(0);
+      setOpen(true);
+      return;
+    }
     const r = !isLoading ? searchAll(query, can) : [];
     setResults(r);
     setSelected(0);
     setOpen(r.length > 0 || query.trim().length > 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, role, isLoading]);
+  }, [query, role, isLoading, isDemo]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -141,11 +166,15 @@ export function GlobalSearch() {
   };
 
   // Determine visible categories based on permissions
-  const visibleTypes = (["cliente", "pedido", "produto", "lead"] as const).filter(
-    type => !isLoading && can(categoryPermissions[type])
-  );
+  const visibleTypes = isDemo
+    ? (["cliente", "pedido", "produto"] as const)
+    : (["cliente", "pedido", "produto", "lead"] as const).filter(
+        type => !isLoading && can(categoryPermissions[type])
+      );
 
-  const placeholderText = isLoading
+  const placeholderText = isDemo
+    ? "Buscar clientes, pedidos, produtos..."
+    : isLoading
     ? "Buscando..."
     : visibleTypes.length === 0
     ? "Sem acesso à busca"
@@ -163,7 +192,7 @@ export function GlobalSearch() {
           onKeyDown={handleKeyDown}
           onFocus={() => query.trim() && setOpen(true)}
           placeholder={placeholderText}
-          disabled={isLoading || visibleTypes.length === 0}
+          disabled={!isDemo && (isLoading || visibleTypes.length === 0)}
           className="w-[280px] h-9 pl-9 pr-10 rounded-lg bg-background border border-border text-sm outline-none transition-all focus:border-ring focus:ring-2 focus:ring-ring/20 text-foreground placeholder:text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">

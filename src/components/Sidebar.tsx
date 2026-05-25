@@ -140,8 +140,8 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
         })}
       </div>
 
-      {/* Açaí Hero Image */}
-      <div className="relative flex items-end justify-center overflow-visible pb-0 mt-2 mx-2">
+      {/* Açaí Hero Image — shrinks when DemoBanner takes height */}
+      <div className="relative flex items-end justify-center overflow-visible pb-0 mx-2 flex-shrink min-h-0" style={{ marginTop: 4 }}>
         <div className="absolute inset-x-0 bottom-0 h-[130px] rounded-xl overflow-hidden">
           <div
             className="w-full h-full"
@@ -154,7 +154,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           <img
             src="/images/3.png"
             alt="Açaí Go"
-            className="w-auto max-h-[130px] object-contain drop-shadow-[0_14px_32px_rgba(124,58,237,0.6)] hover:scale-105 transition-transform duration-300"
+            className="w-auto max-h-[100px] object-contain drop-shadow-[0_14px_32px_rgba(124,58,237,0.6)] hover:scale-105 transition-transform duration-300"
           />
           <div
             className="absolute -bottom-1 left-1/2 -translate-x-1/2"
@@ -168,8 +168,8 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
-      {/* User section */}
-      <div className="px-3 py-2 border-t border-border">
+      {/* User section — always visible, never shrinks */}
+      <div className="px-3 py-2 border-t border-border flex-shrink-0">
         {isDemo ? (
           // Demo mode: show login button instead of user profile
           <button
@@ -222,7 +222,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop: sidebar fixa */}
-      <aside className="hidden lg:flex h-screen flex-col flex-shrink-0">
+      <aside className="hidden lg:flex h-full flex-col flex-shrink-0">
         <SidebarContent />
       </aside>
 

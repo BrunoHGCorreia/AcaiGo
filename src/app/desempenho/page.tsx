@@ -1,6 +1,8 @@
 "use client";
 import { RadialBarChart, RadialBar, ResponsiveContainer, Tooltip } from "recharts";
-import { TrendingUp, TrendingDown, Target, Award, Clock, Star } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, Award, Clock, Star, BarChart2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
 
 const metas = [
   { label: "Faturamento Mensal", meta: "R$ 30.000", atual: "R$ 28.300", pct: 94, color: "#7c3aed" },
@@ -24,6 +26,30 @@ const destaques = [
 ];
 
 export default function Desempenho() {
+  const { usuario, loading } = useAuth();
+  const isDemo = !usuario && !loading;
+
+  if (!isDemo) {
+    return (
+      <div className="space-y-6 max-w-[1600px] mx-auto pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Desempenho</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">KPIs e progresso de metas do negócio</p>
+        </div>
+        <div className="flex flex-col items-center justify-center py-28 rounded-2xl border border-dashed border-border bg-card text-center">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+            <Target className="w-8 h-8 text-primary opacity-60" />
+          </div>
+          <h2 className="text-base font-semibold text-foreground mb-1">Nenhum KPI disponível</h2>
+          <p className="text-sm text-muted-foreground max-w-sm mb-6">Os indicadores de desempenho aparecerão aqui assim que você tiver pedidos e dados registrados.</p>
+          <div className="flex gap-3">
+            <Link href="/pedidos" className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">Adicionar Pedidos</Link>
+            <Link href="/clientes" className="border border-border text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors">Adicionar Clientes</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-4">
       <div>

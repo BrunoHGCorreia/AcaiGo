@@ -1,5 +1,8 @@
 "use client";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { BarChart2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
 
 const monthlyRevenue = [
   { mes: "Jan", valor: 18200 }, { mes: "Fev", valor: 21400 }, { mes: "Mar", valor: 19800 },
@@ -33,7 +36,31 @@ const CT = ({ active, payload, label }: any) => active && payload?.length ? (
 ) : null;
 
 export default function Graficos() {
+  const { usuario, loading } = useAuth();
+  const isDemo = !usuario && !loading;
   const total = clientesPie.reduce((s, d) => s + d.value, 0);
+
+  if (!isDemo) {
+    return (
+      <div className="space-y-6 max-w-[1600px] mx-auto pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Gráficos</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Analytics e visualizações de dados</p>
+        </div>
+        <div className="flex flex-col items-center justify-center py-28 rounded-2xl border border-dashed border-border bg-card text-center">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+            <BarChart2 className="w-8 h-8 text-primary opacity-60" />
+          </div>
+          <h2 className="text-base font-semibold text-foreground mb-1">Nenhum dado para exibir</h2>
+          <p className="text-sm text-muted-foreground max-w-sm mb-6">Os gráficos serão gerados automaticamente conforme você adicionar pedidos, clientes e produtos.</p>
+          <div className="flex gap-3">
+            <Link href="/clientes" className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">Adicionar Clientes</Link>
+            <Link href="/pedidos" className="border border-border text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors">Adicionar Pedidos</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-4">
       <div>

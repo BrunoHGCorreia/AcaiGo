@@ -117,7 +117,9 @@ export default function Produtos() {
               </thead>
               <tbody>
                 {produtos.map((p) => {
-                  const margem = Math.round(((p.preco - p.custo) / p.preco) * 100);
+                  const preco = Number(p.preco) || 0;
+                  const custo = Number(p.custo) || 0;
+                  const margem = preco > 0 ? Math.round(((preco - custo) / preco) * 100) : 0;
                   return (
                     <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                       <td className="py-3.5 px-5">
@@ -129,8 +131,8 @@ export default function Produtos() {
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-muted-foreground">{p.categoria}</td>
-                      <td className="py-3.5 px-4 font-semibold text-foreground">R$ {p.preco.toFixed(2).replace(".", ",")}</td>
-                      <td className="py-3.5 px-4 text-muted-foreground">R$ {p.custo.toFixed(2).replace(".", ",")}</td>
+                      <td className="py-3.5 px-4 font-semibold text-foreground">R$ {preco.toFixed(2).replace(".", ",")}</td>
+                      <td className="py-3.5 px-4 text-muted-foreground">R$ {custo.toFixed(2).replace(".", ",")}</td>
                       <td className="py-3.5 px-4">
                         <span className={`text-xs font-semibold ${margem >= 50 ? "text-emerald-500" : margem >= 30 ? "text-amber-500" : "text-red-500"}`}>{margem}%</span>
                       </td>

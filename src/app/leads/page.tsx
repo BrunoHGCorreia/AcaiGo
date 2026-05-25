@@ -4,6 +4,9 @@ import useSWR from "swr";
 import { Plus, ArrowUpRight, Target, Clock, CheckCircle, Loader2, Trash2, X, Save } from "lucide-react";
 import ConfirmDelete from "@/components/modals/ConfirmDelete";
 import { formatPhone } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { demoLeadsKanban } from "@/lib/demo-data";
+import toast from "react-hot-toast";
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
 
@@ -75,13 +78,21 @@ function NovoLeadModal({ onClose, onSave }: { onClose: () => void; onSave: () =>
 }
 
 export default function Leads() {
+  const { usuario, loading: authLoading } = useAuth();
+  const isDemo = !usuario && !authLoading;
+
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteLead, setDeleteLead] = useState<Lead | null>(null);
 
-  const { data, isLoading, mutate } = useSWR("/api/leads", fetcher, { refreshInterval: 5000 });
-  const leads: Lead[] = data?.leads || [];
+  const { data, isLoading, mutate } = useSWR(
+    isDemo ? null : "/api/leads",
+    fetcher,
+    { refreshInterval: 5000 }
+  );
+  const leads: Lead[] = isDemo ? (demoLeadsKanban as Lead[]) : (data?.leads || []);
 
   const moveStage = async (id: number, direction: "forward" | "back") => {
+    if (isDemo) { toast("🎭 Modo demo — alterações não são salvas", { icon: "ℹ️" }); return; }
     const lead = leads.find(l => l.id === id);
     if (!lead) return;
     const idx = stages.indexOf(lead.stage);
@@ -91,6 +102,7 @@ export default function Leads() {
   };
 
   const handleDelete = async (id: number) => {
+    if (isDemo) { toast("🎭 Modo demo — exclusões não são salvas", { icon: "ℹ️" }); setDeleteLead(null); return; }
     await fetch(`/api/leads/${id}`, { method: "DELETE" });
     mutate();
   };

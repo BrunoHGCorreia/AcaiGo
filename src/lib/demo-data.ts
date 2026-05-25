@@ -17,12 +17,12 @@ export const demoClientes = [
 
 // ─── Produtos ─────────────────────────────────────────────────────────────────
 export const demoProdutos = [
-  { id: 1, nome: "Açaí Tradicional 300ml", cat: "Açaí", categoria: "Açaí", preco: 14.90, estoque: 150, status: "Ativo", descricao: "Açaí batido na hora com guaraná", createdAt: "2025-01-01T00:00:00Z" },
-  { id: 2, nome: "Açaí Especial 500ml", cat: "Açaí", categoria: "Açaí", preco: 22.90, estoque: 80, status: "Ativo", descricao: "Açaí cremoso com frutas selecionadas", createdAt: "2025-01-01T00:00:00Z" },
-  { id: 3, nome: "Açaí Família 1L", cat: "Açaí", categoria: "Açaí", preco: 39.90, estoque: 45, status: "Ativo", descricao: "Porção família para compartilhar", createdAt: "2025-01-01T00:00:00Z" },
-  { id: 4, nome: "Granola Premium", cat: "Complemento", categoria: "Complemento", preco: 5.00, estoque: 200, status: "Ativo", descricao: "Granola artesanal crocante", createdAt: "2025-01-01T00:00:00Z" },
-  { id: 5, nome: "Leite Condensado", cat: "Complemento", categoria: "Complemento", preco: 3.00, estoque: 300, status: "Ativo", descricao: "Cobertura de leite condensado", createdAt: "2025-01-01T00:00:00Z" },
-  { id: 6, nome: "Combo Duplo", cat: "Combo", categoria: "Combo", preco: 42.00, estoque: 30, status: "Ativo", descricao: "2 açaís 300ml + granola + banana", createdAt: "2025-01-01T00:00:00Z" },
+  { id: 1, nome: "Açaí Tradicional 300ml", cat: "Açaí", categoria: "Açaí", preco: 14.90, custo: 6.50, estoque: 150, status: "Ativo", vendas: 320, descricao: "Açaí batido na hora com guaraná", createdAt: "2025-01-01T00:00:00Z" },
+  { id: 2, nome: "Açaí Especial 500ml", cat: "Açaí", categoria: "Açaí", preco: 22.90, custo: 9.80, estoque: 80, status: "Ativo", vendas: 198, descricao: "Açaí cremoso com frutas selecionadas", createdAt: "2025-01-01T00:00:00Z" },
+  { id: 3, nome: "Açaí Família 1L", cat: "Açaí", categoria: "Açaí", preco: 39.90, custo: 16.00, estoque: 45, status: "Ativo", vendas: 87, descricao: "Porção família para compartilhar", createdAt: "2025-01-01T00:00:00Z" },
+  { id: 4, nome: "Granola Premium", cat: "Complemento", categoria: "Complemento", preco: 5.00, custo: 1.80, estoque: 200, status: "Ativo", vendas: 410, descricao: "Granola artesanal crocante", createdAt: "2025-01-01T00:00:00Z" },
+  { id: 5, nome: "Leite Condensado", cat: "Complemento", categoria: "Complemento", preco: 3.00, custo: 1.10, estoque: 300, status: "Ativo", vendas: 380, descricao: "Cobertura de leite condensado", createdAt: "2025-01-01T00:00:00Z" },
+  { id: 6, nome: "Combo Duplo", cat: "Combo", categoria: "Combo", preco: 42.00, custo: 18.50, estoque: 30, status: "Ativo", vendas: 62, descricao: "2 açaís 300ml + granola + banana", createdAt: "2025-01-01T00:00:00Z" },
 ];
 
 // ─── Pedidos ──────────────────────────────────────────────────────────────────
@@ -43,6 +43,16 @@ export const demoLeads = [
   { id: 2, nome: "Camila Rodrigues", email: "camila.r@email.com", telefone: "(21) 97222-3333", fonte: "WhatsApp", stage: "Proposta", valor: "R$ 1.200,00", createdAt: "2025-05-18T14:30:00Z", initials: "CR" },
   { id: 3, nome: "Bruno Ferreira", email: "b.ferreira@email.com", telefone: "(31) 96333-4444", fonte: "Indicação", stage: "Contato", valor: "R$ 800,00", createdAt: "2025-05-15T09:00:00Z", initials: "BF" },
   { id: 4, nome: "Juliana Nunes", email: "ju.nunes@email.com", telefone: "(41) 95444-5555", fonte: "Google", stage: "Fechado", valor: "R$ 2.400,00", createdAt: "2025-05-10T16:00:00Z", initials: "JN" },
+];
+
+// Format compatible with Leads page (uses contato + Stage enum)
+export const demoLeadsKanban = [
+  { id: 1, nome: "Pedro Alves", contato: "(11) 98111-2222", fonte: "Instagram", valorEst: 500, stage: "Novo" as const, createdAt: "2025-05-20T10:00:00Z" },
+  { id: 2, nome: "Camila Rodrigues", contato: "(21) 97222-3333", fonte: "WhatsApp", valorEst: 1200, stage: "Proposta" as const, createdAt: "2025-05-18T14:30:00Z" },
+  { id: 3, nome: "Bruno Ferreira", contato: "(31) 96333-4444", fonte: "Indicação", valorEst: 800, stage: "Contato" as const, createdAt: "2025-05-15T09:00:00Z" },
+  { id: 4, nome: "Juliana Nunes", contato: "(41) 95444-5555", fonte: "Google", valorEst: 2400, stage: "Fechado" as const, createdAt: "2025-05-10T16:00:00Z" },
+  { id: 5, nome: "Thiago Barbosa", contato: "(11) 97888-9999", fonte: "Site", valorEst: 350, stage: "Novo" as const, createdAt: "2025-05-22T11:00:00Z" },
+  { id: 6, nome: "Rafaela Costa", contato: "(51) 96777-8888", fonte: "Instagram", valorEst: 950, stage: "Contato" as const, createdAt: "2025-05-21T09:30:00Z" },
 ];
 
 // ─── Entregadores ─────────────────────────────────────────────────────────────

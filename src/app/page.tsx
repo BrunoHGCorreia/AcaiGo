@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import useSWR from "swr";
 import {
   DollarSign, ShoppingBag, Users, TrendingUp,
   ArrowUpRight, ArrowDownRight, Eye, Edit2, Trash2, Target,
-  X, AlertTriangle, ShieldX,
+  X, AlertTriangle, ShieldX, ShoppingCart,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -15,7 +16,10 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVitrine } from "@/contexts/VitrineContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import toast from "react-hot-toast";
+
+const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 
@@ -294,15 +298,96 @@ export default function Dashboard() {
   const { can, role, isLoading } = usePermissions();
   const { usuario } = useAuth();
   const { isVitrine } = useVitrine();
+  const { t, lang } = useLanguage();
   const router = useRouter();
-  const totalOrders = statusData.reduce((s, d) => s + d.value, 0);
 
   const [viewingOrder, setViewingOrder] = useState<typeof orders[0] | null>(null);
   const [deletingOrder, setDeletingOrder] = useState<typeof orders[0] | null>(null);
   const [localOrders, setLocalOrders] = useState(orders);
 
-  // Demo mode: not logged in OR logged in but vitrine is active
+  // Demo mode: not logged in OR vitrine is active
   const isDemo = (!usuario && !isLoading) || isVitrine;
+
+  // ─── Fetch real data when logged in ───────────────────────────────
+  const { data: apiData } = useSWR(
+    !isDemo ? "/api/dashboard" : null,
+    fetcher,
+    { refreshInterval: 30000 }
+  );
+
+  // ─── Real data (zeros when empty) ─────────────────────────────────
+  const realKpis = apiData?.kpis || { faturamentoHoje: 0, pedidosHoje: 0, novosClientes: 0 };
+  const realStatus = apiData?.statusPedidos || { Pedido: 0, Preparo: 0, Entrega: 0, "Concluído": 0 };
+  const realRecentOrders: any[] = apiData?.pedidosRecentes || [];
+  const realGrafico = apiData?.graficoHoras?.length
+    ? apiData.graficoHoras
+    : Array.from({ length: 9 }, (_, i) => ({ hour: `${8 + i}h`, value: 0 }));
+
+  const realTicket = realKpis.pedidosHoje > 0
+    ? (realKpis.faturamentoHoje / realKpis.pedidosHoje)
+    : 0;
+
+  const fmtBRL = (v: number) =>
+    v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // ─── Status label map (translatable) ──────────────────────────────
+  const statusLabelMap: Record<string, string> = {
+    "Concluído": t("status.concluido"),
+    "Entrega":    t("status.entrega"),
+    "Preparo":    t("status.preparo"),
+    "Pedido":     t("status.pedido"),
+  };
+  const statusColorMap: Record<string, string> = {
+    "Concluído": "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+    "Entrega":    "text-violet-400 bg-violet-500/10 border-violet-500/20",
+    "Preparo":    "text-amber-500 bg-amber-500/10 border-amber-500/20",
+    "Pedido":     "text-slate-400 bg-slate-500/10 border-slate-500/20",
+  };
+
+  // ─── Display data (switches between demo and real) ─────────────────
+  const displayFaturamento = isDemo ? "R$ 2.458,90" : `R$ ${fmtBRL(realKpis.faturamentoHoje)}`;
+  const displayPedidos     = isDemo ? "78"           : String(realKpis.pedidosHoje);
+  const displayClientes    = isDemo ? "12"           : String(realKpis.novosClientes);
+  const displayTicket      = isDemo ? "R$ 31,52"    : `R$ ${fmtBRL(realTicket)}`;
+  const displayGrafico     = isDemo ? revenueData   : realGrafico;
+  const displayWeek        = isDemo ? weekData       : weekData.map(d => ({ ...d, value: 0 }));
+
+  const displayStatusData = isDemo ? statusData : [
+    { name: t("status.concluido"), value: realStatus["Concluído"] || 0, color: "#10b981" },
+    { name: t("status.entrega"),   value: realStatus["Entrega"]   || 0, color: "#7c3aed" },
+    { name: t("status.preparo"),   value: realStatus["Preparo"]   || 0, color: "#f59e0b" },
+    { name: t("status.pedido"),    value: realStatus["Pedido"]    || 0, color: "#94a3b8" },
+  ];
+  const displayTotalOrders = displayStatusData.reduce((s, d) => s + d.value, 0);
+
+  const displayFunnelData = isDemo ? funnelData : (() => {
+    const total = realStatus["Pedido"] || 0;
+    return [
+      { stage: t("status.pedido"),     count: total,                          pct: 100, color: "#7c3aed" },
+      { stage: t("status.preparo"),    count: realStatus["Preparo"]   || 0,   pct: total > 0 ? Math.round(((realStatus["Preparo"] || 0) / total) * 100) : 0, color: "#9d5cf5" },
+      { stage: t("status.entrega"),    count: realStatus["Entrega"]   || 0,   pct: total > 0 ? Math.round(((realStatus["Entrega"] || 0) / total) * 100) : 0, color: "#c084fc" },
+      { stage: t("status.concluido"),  count: realStatus["Concluído"] || 0,  pct: total > 0 ? Math.round(((realStatus["Concluído"] || 0) / total) * 100) : 0, color: "#10b981" },
+    ];
+  })();
+
+  const displayOrders = isDemo ? localOrders : realRecentOrders.map((p: any) => {
+    const names = (p.cliente?.nome || "Cliente").split(" ");
+    const initials = names.slice(0, 2).map((w: string) => w[0] ?? "").join("").toUpperCase();
+    const date = new Date(p.createdAt);
+    const dateStr = lang === "pt"
+      ? `Hoje, ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+      : lang === "en"
+      ? `Today, ${date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`
+      : `Hoy, ${date.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`;
+    return {
+      id: `#${p.id}`, numId: p.id,
+      client: p.cliente?.nome || "Cliente", initials,
+      date: dateStr,
+      value: `R$ ${fmtBRL(Number(p.total))}`,
+      status: statusLabelMap[p.status] || p.status,
+      statusColor: statusColorMap[p.status] || "text-slate-400 bg-slate-500/10 border-slate-500/20",
+    };
+  });
 
   const handleDelete = (order: typeof orders[0]) => {
     if (isDemo) {
@@ -344,18 +429,18 @@ export default function Dashboard() {
 
       {/* ── ROW 1: 4 KPI cards + image ──────────────────────────────── */}
       <div className="grid grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_270px] gap-3 lg:gap-4">
-        <KpiCard title="Faturamento Hoje" value="R$ 2.458,90" delta="+18,6%" deltaPositive={true}
+        <KpiCard title={t("kpi.faturamentoHoje")} value={displayFaturamento} delta={isDemo ? "+18,6%" : "+0%"} deltaPositive={true}
           icon={DollarSign} iconColor="bg-violet-500/15 text-violet-500"
-          sparkData={revenueData} sparkColor="#7c3aed" />
-        <KpiCard title="Pedidos Hoje" value="78" delta="+14,3%" deltaPositive={true}
+          sparkData={displayGrafico} sparkColor="#7c3aed" />
+        <KpiCard title={t("kpi.pedidosHoje")} value={displayPedidos} delta={isDemo ? "+14,3%" : "+0%"} deltaPositive={true}
           icon={ShoppingBag} iconColor="bg-blue-500/15 text-blue-500"
-          sparkData={weekData} sparkColor="#3b82f6" />
-        <KpiCard title="Novos Clientes" value="12" delta="+9,1%" deltaPositive={true}
+          sparkData={displayWeek.map(d => ({ value: d.value }))} sparkColor="#3b82f6" />
+        <KpiCard title={t("kpi.novosClientes")} value={displayClientes} delta={isDemo ? "+9,1%" : "+0%"} deltaPositive={true}
           icon={Users} iconColor="bg-emerald-500/15 text-emerald-500"
-          sparkData={[...weekData].reverse()} sparkColor="#10b981" />
-        <KpiCard title="Ticket Médio" value="R$ 31,52" delta="-3,8%" deltaPositive={false}
+          sparkData={displayWeek.map(d => ({ value: d.value / 10 })).reverse()} sparkColor="#10b981" />
+        <KpiCard title={t("kpi.ticketMedio")} value={displayTicket} delta={isDemo ? "-3,8%" : "+0%"} deltaPositive={false}
           icon={Target} iconColor="bg-amber-500/15 text-amber-500"
-          sparkData={weekData.map((d, i) => ({ value: d.value / (10 + i) }))} sparkColor="#f59e0b" />
+          sparkData={displayWeek.map((d, i) => ({ value: d.value / (10 + i) }))} sparkColor="#f59e0b" />
 
         {/* 5th column — image */}
         <div className="hidden xl:flex items-end justify-center relative overflow-visible">
@@ -379,21 +464,23 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle>Faturamento do Dia</CardTitle>
-                <p className="text-xl font-bold text-foreground mt-1">R$ 2.458,90</p>
-                <p className="text-xs text-emerald-500 flex items-center gap-1 mt-0.5">
-                  <ArrowUpRight className="w-3 h-3" /> +21,3% comparado a ontem
-                </p>
+                <CardTitle>{t("dash.faturamentoDia")}</CardTitle>
+                <p className="text-xl font-bold text-foreground mt-1">{displayFaturamento}</p>
+                {isDemo && (
+                  <p className="text-xs text-emerald-500 flex items-center gap-1 mt-0.5">
+                    <ArrowUpRight className="w-3 h-3" /> {t("dash.comparadoOntem")}
+                  </p>
+                )}
               </div>
               <select className="text-xs border border-border rounded-md px-2.5 py-1.5 bg-background text-muted-foreground outline-none focus:ring-2 focus:ring-ring/20 cursor-pointer">
-                <option>Hoje</option><option>Semana</option><option>Mês</option>
+                <option>{t("dash.hoje")}</option>
               </select>
             </div>
           </CardHeader>
           <CardContent className="pt-2">
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                <AreaChart data={displayGrafico} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%"  stopColor="#7c3aed" stopOpacity={0.3} />
@@ -415,27 +502,27 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Status dos Pedidos</CardTitle>
-              <span className="text-xs text-muted-foreground">Hoje</span>
+              <CardTitle>{t("dash.statusPedidos")}</CardTitle>
+              <span className="text-xs text-muted-foreground">{t("dash.hoje")}</span>
             </div>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-5">
             <div className="relative w-[150px] h-[150px] flex-shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={46} outerRadius={68}
+                  <Pie data={displayStatusData} cx="50%" cy="50%" innerRadius={46} outerRadius={68}
                     paddingAngle={3} dataKey="value" stroke="none" cornerRadius={4}>
-                    {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    {displayStatusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-bold text-foreground">{totalOrders}</span>
-                <span className="text-[10px] uppercase text-muted-foreground tracking-wider">Total</span>
+                <span className="text-2xl font-bold text-foreground">{displayTotalOrders}</span>
+                <span className="text-[10px] uppercase text-muted-foreground tracking-wider">{t("dash.totalPedidos")}</span>
               </div>
             </div>
             <div className="w-full space-y-3">
-              {statusData.map((item, i) => (
+              {displayStatusData.map((item, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
@@ -443,7 +530,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-foreground">{item.value}</span>
-                    <span className="text-xs text-muted-foreground w-10 text-right">({Math.round((item.value / totalOrders) * 100)}%)</span>
+                    <span className="text-xs text-muted-foreground w-10 text-right">({displayTotalOrders > 0 ? Math.round((item.value / displayTotalOrders) * 100) : 0}%)</span>
                   </div>
                 </div>
               ))}
@@ -460,10 +547,10 @@ export default function Dashboard() {
           <CardHeader className="pb-0">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Pedidos Recentes</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Últimos pedidos do dia</p>
+                <h3 className="text-sm font-semibold text-foreground">{t("dash.pedidosRecentes")}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("dash.ultimosPedidos")}</p>
               </div>
-              <Link href="/pedidos" className="text-xs font-medium text-primary hover:underline">Ver todos</Link>
+              <Link href="/pedidos" className="text-xs font-medium text-primary hover:underline">{t("dash.verTodos")}</Link>
             </div>
           </CardHeader>
           <CardContent className="pt-3">
@@ -471,16 +558,28 @@ export default function Dashboard() {
               <table className="w-full text-[12px] min-w-[600px]">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-2.5 font-medium text-muted-foreground pl-1 pr-3">ID</th>
-                    <th className="text-left py-2.5 font-medium text-muted-foreground pr-3">Cliente</th>
-                    <th className="text-left py-2.5 font-medium text-muted-foreground pr-3 hidden sm:table-cell">Data</th>
-                    <th className="text-left py-2.5 font-medium text-muted-foreground pr-3">Status</th>
-                    <th className="text-right py-2.5 font-medium text-muted-foreground pr-4">Valor</th>
-                    <th className="text-right py-2.5 font-medium text-muted-foreground pr-1">Ações</th>
+                    <th className="text-left py-2.5 font-medium text-muted-foreground pl-1 pr-3">{t("table.id")}</th>
+                    <th className="text-left py-2.5 font-medium text-muted-foreground pr-3">{t("table.cliente")}</th>
+                    <th className="text-left py-2.5 font-medium text-muted-foreground pr-3 hidden sm:table-cell">{t("table.data")}</th>
+                    <th className="text-left py-2.5 font-medium text-muted-foreground pr-3">{t("table.status")}</th>
+                    <th className="text-right py-2.5 font-medium text-muted-foreground pr-4">{t("table.valor")}</th>
+                    <th className="text-right py-2.5 font-medium text-muted-foreground pr-1">{t("table.acoes")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {localOrders.map((order, i) => (
+                  {displayOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center">
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <ShoppingCart className="w-8 h-8 opacity-20" />
+                          <p className="text-sm">{t("dash.nenhumPedido")}</p>
+                          <p className="text-xs">{t("dash.inicieCadastrando")}</p>
+                          <Link href="/pedidos" className="mt-2 text-xs font-medium text-primary hover:underline">{t("dash.addPedido")}</Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    displayOrders.map((order, i) => (
                     <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                       <td className="py-3 pl-1 pr-3">
                         <button
@@ -544,7 +643,8 @@ export default function Dashboard() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -557,12 +657,12 @@ export default function Dashboard() {
           <Card className="flex-1">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">Funil de Pedidos</h3>
-                <Link href="/pedidos" className="text-xs font-medium text-primary hover:underline">Ver todos</Link>
+                <h3 className="text-sm font-semibold text-foreground">{t("dash.funilPedidos")}</h3>
+                <Link href="/pedidos" className="text-xs font-medium text-primary hover:underline">{t("dash.verTodos")}</Link>
               </div>
             </CardHeader>
             <CardContent className="space-y-2.5">
-              {funnelData.map((item, i) => (
+              {displayFunnelData.map((item, i) => (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-medium text-muted-foreground">{item.stage}</span>
@@ -582,12 +682,12 @@ export default function Dashboard() {
 
           <Card className="flex-1">
             <CardHeader className="pb-2">
-              <CardTitle>Faturamento Semanal</CardTitle>
+              <CardTitle>{t("dash.faturamentoSemanal")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[110px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weekData} margin={{ top: 0, right: 0, left: -30, bottom: 0 }} barSize={20}>
+                  <BarChart data={displayWeek} margin={{ top: 0, right: 0, left: -30, bottom: 0 }} barSize={20}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                     <XAxis dataKey="day" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} dy={5} />
                     <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} />

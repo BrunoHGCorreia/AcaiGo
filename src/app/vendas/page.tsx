@@ -1,6 +1,8 @@
 "use client";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { ArrowUpRight, ArrowDownRight, DollarSign, ShoppingBag, TrendingUp, Users } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, DollarSign, ShoppingBag, TrendingUp, Users, BarChart2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
 
 const dailyData = [
   { day: "Seg", vendas: 1820, pedidos: 48 }, { day: "Ter", vendas: 2340, pedidos: 62 },
@@ -28,8 +30,33 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Vendas() {
+  const { usuario, loading } = useAuth();
+  const isDemo = !usuario && !loading;
+
   const totalSemana = dailyData.reduce((s, d) => s + d.vendas, 0);
   const totalPedidos = dailyData.reduce((s, d) => s + d.pedidos, 0);
+
+  if (!isDemo) {
+    return (
+      <div className="space-y-6 max-w-[1600px] mx-auto pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Vendas</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Relatório de vendas e desempenho</p>
+        </div>
+        <div className="flex flex-col items-center justify-center py-28 rounded-2xl border border-dashed border-border bg-card text-center">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+            <BarChart2 className="w-8 h-8 text-primary opacity-60" />
+          </div>
+          <h2 className="text-base font-semibold text-foreground mb-1">Nenhuma venda registrada ainda</h2>
+          <p className="text-sm text-muted-foreground max-w-sm mb-6">As análises de vendas aparecerão aqui assim que você cadastrar pedidos.</p>
+          <div className="flex gap-3">
+            <Link href="/pedidos" className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">Adicionar Pedido</Link>
+            <Link href="/produtos" className="border border-border text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors">Gerenciar Produtos</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-4">

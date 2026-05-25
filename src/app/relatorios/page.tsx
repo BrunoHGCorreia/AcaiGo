@@ -2,6 +2,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { Download, FileText, BarChart2, Users, DollarSign, ShoppingBag, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const reportTypes = [
   { icon: DollarSign, title: "Relatório de Faturamento", desc: "Receitas, despesas e lucro por período", color: "text-violet-500 bg-violet-500/10", period: "Maio 2026" },
@@ -26,6 +27,8 @@ const resumo = [
 ];
 
 export default function Relatorios() {
+  const { usuario, loading } = useAuth();
+  const isDemo = !usuario && !loading;
   const [generatingId, setGeneratingId] = useState<number | null>(null);
 
   const handleGerar = async (idx: number, title: string) => {
@@ -45,16 +48,18 @@ export default function Relatorios() {
         <p className="text-sm text-muted-foreground mt-0.5">Gere e exporte relatórios do seu negócio</p>
       </div>
 
-      {/* Quick summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {resumo.map((r, i) => (
-          <div key={i} className="rounded-xl border border-border bg-card p-5">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider">{r.label}</p>
-            <p className="text-xl font-bold text-foreground mt-2">{r.value}</p>
-            <p className="text-xs text-emerald-500 mt-1">{r.sub}</p>
-          </div>
-        ))}
-      </div>
+      {/* Quick summary — only in demo mode */}
+      {isDemo && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {resumo.map((r, i) => (
+            <div key={i} className="rounded-xl border border-border bg-card p-5">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">{r.label}</p>
+              <p className="text-xl font-bold text-foreground mt-2">{r.value}</p>
+              <p className="text-xs text-emerald-500 mt-1">{r.sub}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Generate reports */}
       <div>
@@ -83,52 +88,66 @@ export default function Relatorios() {
         </div>
       </div>
 
-      {/* History */}
-      <div className="rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <div className="flex items-center gap-2">
+      {/* History — only show in demo mode; real users start empty */}
+      {isDemo ? (
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex items-center justify-between p-5 border-b border-border">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold text-foreground">Histórico de Relatórios</h3>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px] min-w-[480px]">
+              <thead>
+                <tr className="border-b border-border">
+                  {["Nome", "Tipo", "Gerado em", "Tamanho", ""].map((h, i) => (
+                    <th key={i} className={`py-3 px-5 font-medium text-muted-foreground ${i === 4 ? "text-right" : "text-left"}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {historicoRelatorios.map((r, i) => (
+                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-2.5">
+                        <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <span className="font-medium text-foreground">{r.nome}</span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-medium">{r.tipo}</span>
+                    </td>
+                    <td className="py-3.5 px-5 text-muted-foreground">{r.gerado}</td>
+                    <td className="py-3.5 px-5 text-muted-foreground">{r.tamanho}</td>
+                    <td className="py-3.5 px-5 text-right">
+                      <button
+                        onClick={() => handleDownload(r.nome)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 ml-auto opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 p-5 border-b border-border">
             <FileText className="w-4 h-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Histórico de Relatórios</h3>
           </div>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <FileText className="w-10 h-10 text-muted-foreground opacity-20 mb-3" />
+            <p className="text-sm text-muted-foreground">Nenhum relatório gerado ainda.</p>
+            <p className="text-xs text-muted-foreground mt-1">Use os botões acima para gerar seu primeiro relatório.</p>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] min-w-[480px]">
-            <thead>
-              <tr className="border-b border-border">
-                {["Nome", "Tipo", "Gerado em", "Tamanho", ""].map((h, i) => (
-                  <th key={i} className={`py-3 px-5 font-medium text-muted-foreground ${i === 4 ? "text-right" : "text-left"}`}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {historicoRelatorios.map((r, i) => (
-                <tr key={i} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center gap-2.5">
-                      <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <span className="font-medium text-foreground">{r.nome}</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-5">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-medium">{r.tipo}</span>
-                  </td>
-                  <td className="py-3.5 px-5 text-muted-foreground">{r.gerado}</td>
-                  <td className="py-3.5 px-5 text-muted-foreground">{r.tamanho}</td>
-                  <td className="py-3.5 px-5 text-right">
-                    <button
-                      onClick={() => handleDownload(r.nome)}
-                      className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 ml-auto opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Download
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

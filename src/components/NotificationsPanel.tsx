@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Package, DollarSign, AlertTriangle, CheckCircle, X } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Notification = {
   id: number;
@@ -14,12 +15,13 @@ type Notification = {
   href?: string;
 };
 
-const initialNotifications: Notification[] = [
-  { id: 1, type: "pedido", title: "Novo pedido recebido", desc: "João Silva fez um pedido de R$ 58,90", time: "há 2 min", read: false, href: "/pedidos" },
-  { id: 2, type: "alerta", title: "Estoque crítico", desc: "Mel Natural está com apenas 12 unidades", time: "há 15 min", read: false, href: "/produtos" },
-  { id: 3, type: "pedido", title: "Pedido #1255 — Preparo", desc: "Carlos Santos aguarda preparo do pedido", time: "há 32 min", read: false, href: "/pedidos" },
-  { id: 4, type: "financeiro", title: "Meta diária atingida!", desc: "Você superou R$ 2.000 em faturamento hoje", time: "há 1h", read: true, href: "/financeiro" },
-  { id: 5, type: "sistema", title: "Relatório gerado", desc: "Relatório de Abril 2026 está pronto", time: "há 3h", read: true, href: "/relatorios" },
+// Demo notifications — only shown when NOT logged in
+const demoNotifications: Notification[] = [
+  { id: 1, type: "pedido",     title: "Novo pedido recebido",     desc: "João Silva fez um pedido de R$ 58,90",         time: "há 2 min",  read: false, href: "/pedidos"    },
+  { id: 2, type: "alerta",     title: "Estoque crítico",           desc: "Mel Natural está com apenas 12 unidades",      time: "há 15 min", read: false, href: "/produtos"   },
+  { id: 3, type: "pedido",     title: "Pedido #1255 — Preparo",   desc: "Carlos Santos aguarda preparo do pedido",      time: "há 32 min", read: false, href: "/pedidos"    },
+  { id: 4, type: "financeiro", title: "Meta diária atingida!",    desc: "Você superou R$ 2.000 em faturamento hoje",    time: "há 1h",     read: true,  href: "/financeiro" },
+  { id: 5, type: "sistema",    title: "Relatório gerado",          desc: "Relatório de Abril 2026 está pronto",          time: "há 3h",     read: true,  href: "/relatorios" },
 ];
 
 const typeConfig = {
@@ -30,10 +32,25 @@ const typeConfig = {
 };
 
 export function NotificationsPanel() {
+  const { usuario, loading } = useAuth();
+  const isDemo = !usuario && !loading;
+
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications);
+  // When logged in: start with empty notifications. In demo mode: start with demo data.
+  const [notifications, setNotifications] = useState<Notification[]>(
+    isDemo ? demoNotifications : []
+  );
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
+
+  // Reset notifications based on auth state changes
+  useEffect(() => {
+    if (isDemo) {
+      setNotifications(demoNotifications);
+    } else {
+      setNotifications([]);
+    }
+  }, [isDemo]);
 
   const unread = notifications.filter(n => !n.read).length;
 
@@ -74,6 +91,9 @@ export function NotificationsPanel() {
               {unread > 0 && (
                 <span className="text-[10px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">{unread}</span>
               )}
+              {isDemo && (
+                <span className="text-[10px] font-semibold text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded-full border border-violet-500/20">Demo</span>
+              )}
             </div>
             {unread > 0 && (
               <button onClick={markAllRead} className="text-xs text-primary hover:underline font-medium">
@@ -87,7 +107,10 @@ export function NotificationsPanel() {
             {notifications.length === 0 ? (
               <div className="py-10 text-center">
                 <Bell className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-30" />
-                <p className="text-sm text-muted-foreground">Nenhuma notificação</p>
+                <p className="text-sm text-muted-foreground font-medium">Nenhuma notificação</p>
+                <p className="text-xs text-muted-foreground mt-1 opacity-70">
+                  As notificações aparecerão aqui conforme a atividade
+                </p>
               </div>
             ) : notifications.map(n => {
               const cfg = typeConfig[n.type];
@@ -128,7 +151,7 @@ export function NotificationsPanel() {
               onClick={() => { setOpen(false); router.push("/pedidos"); }}
               className="text-xs text-primary hover:underline font-medium w-full text-center"
             >
-              Ver todas as notificações
+              {isDemo ? "Ver todas as notificações (demo)" : "Ver todas as notificações"}
             </button>
           </div>
         </div>
